@@ -32,7 +32,8 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(
       options.Lockout.MaxFailedAccessAttempts = 5;
       options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
     }
-)
+) // Steg 3. Tala om för EntityFramework och framförallt för Identity
+  //var vi vill spara våra användare och roller någonstans...
 .AddEntityFrameworkStores<ApplicationContext>();
 
 // Konfigura Authentication
