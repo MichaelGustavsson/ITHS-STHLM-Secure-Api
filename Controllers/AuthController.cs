@@ -8,11 +8,16 @@ using secure_api.ViewModels;
 namespace secure_api.Controllers
 {
   [ApiController]
-  [Route("api/[controller]")]
+  [Route("api/auth")]
   public class AuthController : ControllerBase
   {
+    private readonly IConfiguration _config;
+    public AuthController(IConfiguration config)
+    {
+      _config = config;
+    }
 
-    [HttpPost]
+    [HttpPost("login")]
     public ActionResult Login(LoginViewModel model)
     {
       // Detta är bara en "dummy" kontroll av användare och lösenord
@@ -22,7 +27,7 @@ namespace secure_api.Controllers
         // Vi skapar ett anonymt objekt här för tillfället...
         return Ok(new
         {
-          access_token = CreateJwtToken(model.UserName)
+          access_token = CreateJwtToken(model.UserName) // Skickar in användarnamnet...
         });
       }
       return Unauthorized();
@@ -31,13 +36,16 @@ namespace secure_api.Controllers
     {
 
       // Kommer att hämtas ifrån AppSettings...
-      var key = Encoding.ASCII.GetBytes("Kalle Anka och hans vänner");
+      // Ta en lång svår sträng och gör om den till en Byte Array...
+      var key = Encoding.ASCII.GetBytes(_config.GetValue<string>("apiKey"));
 
       // Skapa en lista av Claims som kommer innehålla
       // information som är av värde för behörighetskontroll...
       var claims = new List<Claim>
       {
-          new Claim(ClaimTypes.Name, userName)
+          new Claim(ClaimTypes.Name, userName),
+          new Claim(ClaimTypes.Email, "kalle@gmail.com"),
+          new Claim("Admin", "true")
       };
 
       // Skapa ett nytt token...
