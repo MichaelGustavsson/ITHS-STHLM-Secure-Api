@@ -40,10 +40,22 @@ namespace secure_api.Controllers
       // Steg 3. Kontrollera så att inget gick galet!
       if (result.Succeeded)
       {
+        // Steg 1. Vi ska skapa en claim som heter Admin och IsAdmin är satt till true...
+
+        if (model.IsAdmin)
+        {
+          await _userManager.AddClaimAsync(user, new Claim("Admin", "true"));
+        }
+
+        await _userManager.AddClaimAsync(user, new Claim("User", "true"));
+        await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Name, user.UserName));
+        await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email));
+        await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.NameIdentifier, user.Id));
+
         var userData = new UserViewModel
         {
           UserName = user.UserName,
-          Token = CreateJwtToken(user)
+          Token = await CreateJwtToken(user)
         };
 
         return StatusCode(201, userData);
@@ -80,13 +92,13 @@ namespace secure_api.Controllers
       var userData = new UserViewModel
       {
         UserName = user.UserName,
-        Token = CreateJwtToken(user)
+        Token = await CreateJwtToken(user)
       };
 
       return Ok(userData);
     }
 
-    private string CreateJwtToken(IdentityUser user)
+    private async Task<string> CreateJwtToken(IdentityUser user)
     {
 
       // Kommer att hämtas ifrån AppSettings...
@@ -95,15 +107,17 @@ namespace secure_api.Controllers
 
       // Skapa en lista av Claims som kommer innehålla
       // information som är av värde för behörighetskontroll...
-      var claims = new List<Claim>
-      {
-          new Claim(ClaimTypes.Name, user.UserName),
-          new Claim(ClaimTypes.Email, user.Email),
-      };
+      // var claims = new List<Claim>
+      // {
+      //     new Claim(ClaimTypes.Name, user.UserName),
+      //     new Claim(ClaimTypes.Email, user.Email),
+      // };
+
+      var userClaims = await _userManager.GetClaimsAsync(user);
 
       // Skapa ett nytt token...
       var jwt = new JwtSecurityToken(
-          claims: claims,
+          claims: userClaims,
           // notBefore: Från när skall biljetten/token vara giltig.
           // Vi kan sätta detta till en datum i framtiden om biljetten/token
           // skall skapas men inte vara giltig på en gång...
