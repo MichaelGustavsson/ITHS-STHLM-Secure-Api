@@ -36,9 +36,11 @@ namespace secure_api.Controllers
         var result = await _roleManager.CreateAsync(new IdentityRole(roleName));
 
         if (!result.Succeeded) return BadRequest(result.Errors);
+        return StatusCode(201);
       }
 
-      return StatusCode(201);
+      return BadRequest("Rollen finns redan");
+
     }
 
     [HttpPost("register")]
