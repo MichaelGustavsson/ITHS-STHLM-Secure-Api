@@ -5,7 +5,7 @@ namespace secure_api.Controllers;
 
 [ApiController]
 [Route("api/weatherforecast")]
-[Authorize(policy: "Admins")] // Tillåter inga anonyma anrop längre...
+[Authorize()] // Tillåter inga anonyma anrop längre...
 public class WeatherForecastController : ControllerBase
 {
   private static readonly string[] Summaries = new[]
@@ -30,5 +30,13 @@ public class WeatherForecastController : ControllerBase
       Summary = Summaries[Random.Shared.Next(Summaries.Length)]
     })
     .ToArray();
+  }
+
+  [HttpGet()]
+  [Authorize(Roles = "Administrator")]
+  public ActionResult ListSettings()
+  {
+    return Ok();
+
   }
 }

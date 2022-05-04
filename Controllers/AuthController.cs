@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -10,17 +11,34 @@ namespace secure_api.Controllers
 {
   [ApiController]
   [Route("api/auth")]
+  [Authorize()]
   public class AuthController : ControllerBase
   {
     private readonly IConfiguration _config;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
 
-    public AuthController(IConfiguration config, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
+    public AuthController(IConfiguration config, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager)
     {
+      _roleManager = roleManager;
       _userManager = userManager;
       _signManager = signInManager;
       _config = config;
+    }
+
+    [HttpPost("create-role")]
+    public async Task<IActionResult> CreateRole([FromQuery] string roleName)
+    {
+
+      if (!await _roleManager.RoleExistsAsync(roleName))
+      {
+        var result = await _roleManager.CreateAsync(new IdentityRole(roleName));
+
+        if (!result.Succeeded) return BadRequest(result.Errors);
+      }
+
+      return StatusCode(201);
     }
 
     [HttpPost("register")]
@@ -45,6 +63,7 @@ namespace secure_api.Controllers
         if (model.IsAdmin)
         {
           await _userManager.AddClaimAsync(user, new Claim("Admin", "true"));
+          await _userManager.AddToRoleAsync(user, "Administrators");
         }
 
         await _userManager.AddClaimAsync(user, new Claim("User", "true"));
@@ -71,6 +90,7 @@ namespace secure_api.Controllers
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<ActionResult<UserViewModel>> Login(LoginViewModel model)
     {
 
@@ -92,6 +112,7 @@ namespace secure_api.Controllers
       var userData = new UserViewModel
       {
         UserName = user.UserName,
+        Expires = DateTime.Now.AddDays(7),
         Token = await CreateJwtToken(user)
       };
 
@@ -105,15 +126,13 @@ namespace secure_api.Controllers
       // Ta en lång svår sträng och gör om den till en Byte Array...
       var key = Encoding.ASCII.GetBytes(_config.GetValue<string>("apiKey"));
 
-      // Skapa en lista av Claims som kommer innehålla
-      // information som är av värde för behörighetskontroll...
-      // var claims = new List<Claim>
-      // {
-      //     new Claim(ClaimTypes.Name, user.UserName),
-      //     new Claim(ClaimTypes.Email, user.Email),
-      // };
+      // Hämta användarens claim ifrån identity databasen...
+      var userClaims = (await _userManager.GetClaimsAsync(user)).ToList();
+      var roles = await _userManager.GetRolesAsync(user);
 
-      var userClaims = await _userManager.GetClaimsAsync(user);
+      userClaims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+
 
       // Skapa ett nytt token...
       var jwt = new JwtSecurityToken(
@@ -123,6 +142,7 @@ namespace secure_api.Controllers
           // skall skapas men inte vara giltig på en gång...
           notBefore: DateTime.Now,
           // Sätt giltighetstiden på biljetten i detta fallet en vecka.
+          // OBSERVERA ATT TIDEN FÖR GILTIGHETEN BÖR LÄGGAS NÅGON ANNANSTANS...
           expires: DateTime.Now.AddDays(7),
           // Skapa en instans av SigningCredential klassen
           // som används för att skapa en hash och signering av biljetten.
